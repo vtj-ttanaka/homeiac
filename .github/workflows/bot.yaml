@@ -1,0 +1,43 @@
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/bot.yaml
+      - config.yaml
+
+jobs:
+  light_toggle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Generate sign
+        id: sign
+        run: |
+          token="${{ secrets.token }}"
+          secret="${{ secrets.secret }}"
+          t="$(date +%s%3N)"
+          nonce="$(uuidgen)"
+          sign="$(echo -n "$token$t$nonce" | openssl dgst -binary -sha256 -hmac "$secret" | base64)"
+          echo "t=$t" >> $GITHUB_OUTPUT
+          echo "nonce=$nonce" >> $GITHUB_OUTPUT
+          echo "sign=$sign" >> $GITHUB_OUTPUT
+
+      - name: Run read-yaml action
+        id: yaml-data
+        uses: jbutcher5/read-yaml@main
+        with:
+          file: './config.yaml'
+          key-path: '["bot", "command"]'
+
+      - name: Light toggle
+        run: |
+          curl -X POST \
+               -H "Content-Type: application/json; charset=utf8" \
+               -H "Authorization: ${{ secrets.token }}" \
+               -H "t: ${{ steps.sign.outputs.t }}" \
+               -H "sign: ${{ steps.sign.outputs.sign }}" \
+               -H "nonce: ${{ steps.sign.outputs.nonce }}" \
+               -d '{"command": "'${{ steps.yaml-data.outputs.data }}'", "paramter": "default", "commandType": "default"}' \
+               "https://api.switch-bot.com/v1.1/devices/${{ secrets.botdeviceid }}/commands"

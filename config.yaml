@@ -1,0 +1,4 @@
+bot:
+  # command: turnOff
+  command: turnOn
+  # command: press
